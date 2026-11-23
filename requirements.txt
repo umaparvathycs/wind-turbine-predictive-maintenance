@@ -1,0 +1,8 @@
+numpy
+pandas
+scikit-learn
+joblib
+kafka-python
+pyspark
+streamlit
+pytest

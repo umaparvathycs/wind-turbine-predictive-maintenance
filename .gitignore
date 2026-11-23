@@ -8,3 +8,16 @@ spark_checkpoints/
 dashboard/predictions.csv
 .env
 .DS_Store
+
+# Dataset and local data
+*.zip
+CARE_To_Compare/
+data/
+
+# Spark runtime files
+spark_checkpoints/
+checkpoint/
+
+# Local environment and editor files
+.env.*
+.vscode/

@@ -1,56 +1,108 @@
-# Wind Turbine Predictive Maintenance — Kafka Pipeline
+# Real-Time Predictive Maintenance of Wind Turbines Using Big Data Streaming Architecture
 
-## 1. Overview
+## 1. Project Overview
 
-This component implements the SCADA data generation and Kafka streaming pipeline for the Wind Turbine Predictive Maintenance project.
+This project implements a real-time predictive maintenance pipeline for wind turbines using Big Data technologies and Machine Learning.
 
-It reads real SCADA records from the CARE dataset ZIP file, validates the required model features, and publishes messages to an Apache Kafka topic.
+It processes real SCADA sensor records from the CARE dataset, publishes them through Apache Kafka, processes streaming data using PySpark Structured Streaming, and predicts abnormal turbine conditions using a trained Random Forest model.
 
-The dataset ZIP is read directly without extracting it.
+The system also maintains consecutive-anomaly alarm information and provides a Streamlit dashboard for monitoring predictions.
 
-## 2. Architecture
+## 2. System Architecture
 
-CARE SCADA Dataset ZIP → SCADA Generator → Schema Validation → Kafka Producer → Kafka Topic → Kafka Consumer
+CARE SCADA Dataset ZIP  
+↓  
+SCADA Data Generator  
+↓  
+Schema Validation (238 Sensor Features)  
+↓  
+Apache Kafka Producer  
+↓  
+Kafka Topic: `wind-turbine-scada`  
+↓  
+PySpark Structured Streaming  
+↓  
+Data Transformation and Validation  
+↓  
+Random Forest Prediction Model  
+↓  
+Anomaly Detection and Alarm Tracking  
+↓  
+Streamlit Monitoring Dashboard
 
 ## 3. Project Structure
 
 ```text
 wind_turbine_kafka/
+├── artifacts/
+│   ├── model_avg.joblib
+│   └── model_metadata_avg.json
 ├── config/
 │   └── settings.py
+├── consumer/
+│   └── kafka_consumer.py
+├── dashboard/
+│   └── app.py
+├── examples/
+│   └── sample_message.json
 ├── generator/
 │   └── scada_generator.py
 ├── producer/
 │   └── kafka_producer.py
-├── consumer/
-│   └── kafka_consumer.py
 ├── schemas/
 │   └── message_schema.py
+├── streaming/
+│   ├── data_transformer.py
+│   ├── prediction_client.py
+│   └── spark_kafka_consumer.py
 ├── tests/
-│   ├── test_schema.py
-│   └── test_generator.py
-├── examples/
-│   └── sample_message.json
+│   ├── test_generator.py
+│   └── test_schema.py
+├── wtpm/
+│   ├── __init__.py
+│   ├── config.py
+│   ├── features.py
+│   └── predict.py
+├── requirements.txt
 └── README.md
 ```
 
-## 4. Requirements
+## 4. Technologies Used
+
+- Python
+- Apache Kafka 4.4.0
+- PySpark Structured Streaming
+- Apache Spark Kafka Connector
+- Random Forest Classifier
+- Scikit-learn
+- Pandas and NumPy
+- Streamlit
+- Joblib
+- Java 17
+
+## 5. Requirements and Installation
+
+Required software:
 
 - Python 3.10 or later
 - Java 17
 - Apache Kafka 4.4.0
-- pandas
-- kafka-python
+- Apache Spark / PySpark
+- CARE dataset ZIP file
 
-Install Python packages:
+Install Python dependencies:
 
-```powershell
-pip install pandas kafka-python
+```bash
+python -m pip install -r requirements.txt
 ```
 
-## 5. Dataset Configuration
+Activate your Python virtual environment before running the project.
 
-Place the original dataset ZIP file in the parent directory:
+## 6. Dataset Configuration
+
+The project uses the CARE To Compare wind turbine SCADA dataset.
+
+Place the original dataset ZIP in the parent `bigdata` directory:
 
 ```text
 bigdata/
@@ -58,21 +110,44 @@ bigdata/
 └── wind_turbine_kafka/
 ```
 
-The generator reads Farm C SCADA records directly from the ZIP archive.
+The generator reads Farm C SCADA records directly from the ZIP archive using Python's ZIP handling and Pandas.
 
-No dataset extraction is required.
+Dataset extraction is not required.
 
-## 6. Kafka Configuration
+The original dataset is kept outside the project repository and is not included in GitHub.
 
-The Kafka settings are maintained in `config/settings.py`.
+## 7. Model Information
 
-- Bootstrap server: `localhost:9092`
+The project uses a trained Random Forest model for predictive maintenance.
+
+Model artifact:
+
+- Model file: `artifacts/model_avg.joblib`
+- Metadata file: `artifacts/model_metadata_avg.json`
+- Model version: `rf-farmC-avg-v1`
+- Farm: C
+- Feature set: Average (`avg`)
+- Input features: 238
+- Sampling interval: 10 minutes
+- Anomaly threshold: 0.1775374057991335
+
+The model predicts whether an incoming SCADA record represents normal or anomalous turbine behaviour.
+
+Negative wind-speed sentinel values for the specified sensors are treated as missing values.
+
+## 8. Kafka Configuration
+
+Kafka settings are maintained in `config/settings.py`.
+
+- Bootstrap server: `localhost:9092` for the Windows producer
 - Topic: `wind-turbine-scada`
 - Producer interval: 2 seconds
 - Message limit: 100
 - SCADA sampling interval: 10 minutes
 
-## 7. Running the Pipeline
+The Spark consumer uses the Windows host gateway address to connect from Ubuntu/WSL.
+
+## 9. Running the Project
 
 ### Step 1: Start Kafka
 
@@ -84,65 +159,108 @@ Start the Kafka server using the configured Kafka installation.
 & "C:\kafka\bin\windows\kafka-topics.bat" --create --topic wind-turbine-scada --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
 ```
 
-### Step 3: Start the producer
+If the topic already exists, it does not need to be recreated.
 
-```powershell
+### Step 3: Start the SCADA producer
+
+From the project root:
+
+```bash
 python -m producer.kafka_producer
 ```
 
-### Step 4: Start the consumer
+The producer reads actual SCADA records, validates them, and publishes JSON messages to Kafka.
 
-```powershell
-python -m consumer.kafka_consumer
+### Step 4: Start the Spark streaming consumer
+
+In another Ubuntu/WSL terminal:
+
+```bash
+python -m streaming.spark_kafka_consumer
 ```
 
-## 8. Message Schema
+The Spark application reads Kafka messages, parses the SCADA features, applies the prediction model, and records the results.
 
-Each Kafka message contains:
+### Step 5: Start the dashboard
 
-- `asset_id`
-- `time_stamp`
-- 238 model-compatible SCADA sensor features
+In another terminal:
 
-Total fields: 240.
-
-The schema is loaded from the Member 1 model metadata file.
-
-Missing feature fields and invalid values are rejected. Null sensor values are permitted.
-
-See `examples/sample_message.json` for an example.
-
-## 9. Testing
-
-Run schema validation tests:
-
-```powershell
-python -m unittest tests.test_schema -v
+```bash
+streamlit run dashboard/app.py
 ```
 
-Run generator tests:
+Open the displayed local URL, normally:
 
-```powershell
-python -m unittest tests.test_generator -v
+`http://localhost:8501`
+
+The dashboard displays prediction statistics, anomaly probabilities, active alarms, and recent prediction records.
+
+## 10. Prediction and Alarm Logic
+
+Each incoming SCADA record is validated and passed to the Random Forest prediction model.
+
+The prediction output includes:
+
+- Turbine asset ID
+- Timestamp
+- Predicted status
+- Anomaly probability
+- Model threshold
+- Model version
+- Consecutive anomaly count
+- Alarm status
+
+The alarm tracker raises an alarm after six consecutive anomalous records spaced at 10-minute intervals, representing one continuous hour.
+
+## 11. Testing
+
+Run the complete test suite:
+
+```bash
+python -m pytest -v
 ```
 
-## 10. Implementation Results
+The tests cover:
 
-The following tests have been completed successfully:
+- SCADA data generation
+- Reading records from the dataset ZIP
+- Required sensor feature validation
+- Message identifiers
+- Timestamp validation
+- Invalid sensor values
+- Missing features
+- Null sensor values
 
-- 100 SCADA messages published to Kafka.
-- 3 messages verified using the Kafka console consumer.
-- 10 messages verified using the Python consumer.
-- 6 schema validation tests passed.
-- 5 generator tests passed.
-- Sample JSON message generated with 240 fields.
+## 12. Implementation and Test Results
 
-## 11. Integration
+The following results have been verified during development:
 
-The Kafka topic `wind-turbine-scada` is intended to provide SCADA messages to the PySpark Structured Streaming component.
+- 100 SCADA messages previously published to Kafka.
+- Kafka consumer successfully verified incoming messages.
+- 238 model-compatible sensor features validated.
+- 11 automated tests passed.
+- Python syntax checks passed.
+- Local Random Forest model loaded successfully.
+- Actual SCADA record successfully processed by the local model.
+- Prediction output successfully generated with anomaly probability and alarm information.
+- Streamlit dashboard successfully displayed prediction statistics and charts.
 
-The streaming component can parse the JSON records and prepare them for downstream predictive maintenance processing.
+Example prediction:
 
-## 12. Notes
+| Field | Result |
+|---|---|
+| Asset ID | 2 |
+| Timestamp | 2022-06-27 00:00:00 |
+| Prediction | Normal |
+| Anomaly probability | 0.044679 |
+| Threshold | 0.177537 |
+| Alarm | False |
 
-The current generator streams real historical SCADA records from the CARE dataset. It does not yet simulate artificial sensor variations or synthetic failure events.
+## 13. Important Notes
+
+- The CARE dataset ZIP is not included in the repository.
+- The trained model and metadata are included in the `artifacts` directory.
+- The model prediction package is included locally in the `wtpm` directory.
+- The project does not require Member 1's separate local repository to import the prediction model.
+- The current generator streams real historical SCADA records and does not generate artificial failure events.
+- The dashboard reads prediction results saved by the Spark streaming application.

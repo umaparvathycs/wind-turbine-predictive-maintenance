@@ -10,8 +10,7 @@ import math
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 METADATA_PATH = (
-    PROJECT_ROOT.parent
-    / "wind-turbine-predictive-maintenance"
+    PROJECT_ROOT
     / "artifacts"
     / "model_metadata_avg.json"
 )
@@ -24,7 +23,7 @@ def load_feature_names():
 
     if not METADATA_PATH.exists():
         raise FileNotFoundError(
-            f"Member 1 metadata not found: {METADATA_PATH}"
+            f"Model metadata not found: {METADATA_PATH}"
         )
 
     with open(METADATA_PATH, "r", encoding="utf-8") as file:

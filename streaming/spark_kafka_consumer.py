@@ -28,8 +28,7 @@ from streaming.prediction_client import process_prediction
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 METADATA_PATH = (
-    PROJECT_ROOT.parent
-    / "wind-turbine-predictive-maintenance"
+    PROJECT_ROOT
     / "artifacts"
     / "model_metadata_avg.json"
 )
